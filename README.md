@@ -16,6 +16,8 @@ workflow where slash commands or skills have become too many to remember.
 Local-first by design: no telemetry, no background service, and no maintainer
 data collection. See [Privacy](PRIVACY.md).
 
+![task-skill-router demo showing post-decomposition skill routing](assets/demo-routing.svg)
+
 ## Quick Demo
 
 Run this from a local clone. It uses synthetic demo skills in

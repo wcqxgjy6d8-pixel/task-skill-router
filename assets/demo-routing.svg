@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="620" viewBox="0 0 1160 620" role="img" aria-labelledby="title desc">
+  <title id="title">task-skill-router demo output</title>
+  <desc id="desc">A sanitized terminal-style demo showing three decomposed tasks routed to installed skills and one missing skill recommendation.</desc>
+  <rect width="1160" height="620" fill="#f6f5f1"/>
+  <rect x="36" y="36" width="1088" height="548" rx="12" fill="#171717"/>
+  <rect x="36" y="36" width="1088" height="42" rx="12" fill="#242424"/>
+  <circle cx="62" cy="57" r="6" fill="#f87171"/>
+  <circle cx="84" cy="57" r="6" fill="#fbbf24"/>
+  <circle cx="106" cy="57" r="6" fill="#34d399"/>
+  <text x="136" y="63" font-family="SFMono-Regular, Consolas, monospace" font-size="15" fill="#d4d4d4">task-skill-router quick demo</text>
+
+  <text x="66" y="112" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#9ca3af"># agent decomposes first, then routes each execution task</text>
+  <text x="66" y="148" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">$ printf '%s\n' \</text>
+  <text x="92" y="178" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">"inspect failing tests and identify root cause" \</text>
+  <text x="92" y="208" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">"update README docs" \</text>
+  <text x="92" y="238" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">"search research papers for related work" \</text>
+  <text x="92" y="268" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">| task-skill-router --batch</text>
+
+  <rect x="66" y="304" width="1028" height="238" rx="8" fill="#0f0f0f" stroke="#3f3f46"/>
+  <text x="92" y="340" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#a7f3d0">{</text>
+  <text x="122" y="370" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">"inspect failing tests..."</text>
+  <text x="420" y="370" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#9ca3af">→</text>
+  <text x="460" y="370" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#86efac">systematic-debugging</text>
+  <text x="700" y="370" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#9ca3af">installed: true</text>
+
+  <text x="122" y="410" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">"update README docs"</text>
+  <text x="420" y="410" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#9ca3af">→</text>
+  <text x="460" y="410" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#86efac">docs</text>
+  <text x="700" y="410" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#9ca3af">installed: true</text>
+
+  <text x="122" y="450" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#e5e7eb">"search research papers..."</text>
+  <text x="420" y="450" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#9ca3af">→</text>
+  <text x="460" y="450" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#fbbf24">arxiv</text>
+  <text x="700" y="450" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#fca5a5">installed: false</text>
+
+  <text x="122" y="500" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#a7f3d0">"missing_skills": ["arxiv"]</text>
+  <text x="92" y="528" font-family="SFMono-Regular, Consolas, monospace" font-size="16" fill="#a7f3d0">}</text>
+
+  <text x="66" y="570" font-family="Inter, Arial, sans-serif" font-size="17" fill="#525252">Local-first JSON routing for Codex, Claude Code, OpenCode, and custom terminal agents.</text>
+</svg>
