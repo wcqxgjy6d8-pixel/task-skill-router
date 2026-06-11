@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,12 @@ def write_skill(root: Path, dirname: str, name: str, description: str, tags: lis
 
 def yaml_path(path: Path) -> str:
     return "'" + str(path).replace("'", "''") + "'"
+
+
+def env_with_config(config: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["TASK_SKILL_ROUTER_CONFIG"] = str(config)
+    return env
 
 
 class SkillRouterTests(unittest.TestCase):
@@ -221,7 +228,7 @@ skills:
                 [sys.executable, str(MODULE_PATH), "write docs"],
                 check=True,
                 capture_output=True,
-                env={"TASK_SKILL_ROUTER_CONFIG": str(config)},
+                env=env_with_config(config),
                 text=True,
             )
 
@@ -265,7 +272,7 @@ confidence_threshold: 0.01
                 input="inspect failing tests\nsearch research papers\n",
                 check=True,
                 capture_output=True,
-                env={"TASK_SKILL_ROUTER_CONFIG": str(config)},
+                env=env_with_config(config),
                 text=True,
             )
 
@@ -304,7 +311,7 @@ confidence_threshold: 0.01
                 ],
                 check=True,
                 capture_output=True,
-                env={"TASK_SKILL_ROUTER_CONFIG": str(config)},
+                env=env_with_config(config),
                 text=True,
             )
 
