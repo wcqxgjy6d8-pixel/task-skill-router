@@ -81,6 +81,7 @@ jobs:
           .\install.ps1 -InstallDir $install -ConfigDir $config -BinDir $bin
           python (Join-Path $install "task-skill-router.py") "write docs"
           if ($LASTEXITCODE -notin @(0, 1)) { throw "router exited with unexpected code $LASTEXITCODE" }
+          $global:LASTEXITCODE = 0
           if (-not (Test-Path (Join-Path $install "task-skill-router.py"))) { throw "router was not installed" }
           if (-not (Test-Path (Join-Path $config "config.yaml"))) { throw "config was not installed" }
           if (-not (Test-Path (Join-Path $config "community.yaml"))) { throw "community mapping was not installed" }
