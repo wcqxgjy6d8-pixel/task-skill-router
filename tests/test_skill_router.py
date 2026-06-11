@@ -35,6 +35,10 @@ def write_skill(root: Path, dirname: str, name: str, description: str, tags: lis
     )
 
 
+def yaml_path(path: Path) -> str:
+    return "'" + str(path).replace("'", "''") + "'"
+
+
 class SkillRouterTests(unittest.TestCase):
     def test_community_mapping_enriches_installed_skill(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -89,7 +93,7 @@ skills:
             config = root / "config.yaml"
             config.write_text(
                 f"""
-skills_dir: "{skills_dir}"
+skills_dir: {yaml_path(skills_dir)}
 confidence_threshold: 0.05
 max_matches: 1
 """.strip(),
@@ -128,8 +132,8 @@ max_matches: 1
             config.write_text(
                 f"""
 skills_dirs:
-  - "{codex_skills}"
-  - "{claude_skills}"
+  - {yaml_path(codex_skills)}
+  - {yaml_path(claude_skills)}
 confidence_threshold: 0.01
 """.strip(),
                 encoding="utf-8",
@@ -154,7 +158,7 @@ confidence_threshold: 0.01
             config = root / "config.yaml"
             config.write_text(
                 f"""
-skills_dir: "{skills_dir}"
+skills_dir: {yaml_path(skills_dir)}
 confidence_threshold: 0.01
 mode_overrides:
   deploy-helper: auto-load
@@ -209,7 +213,7 @@ skills:
             )
             config = root / "config.yaml"
             config.write_text(
-                f'skills_dir: "{skills_dir}"\nconfidence_threshold: 0.01\n',
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.01\n",
                 encoding="utf-8",
             )
 
@@ -249,8 +253,8 @@ skills:
             config = root / "config.yaml"
             config.write_text(
                 f"""
-skills_dir: "{skills_dir}"
-community_mapping: "{community}"
+skills_dir: {yaml_path(skills_dir)}
+community_mapping: {yaml_path(community)}
 confidence_threshold: 0.01
 """.strip(),
                 encoding="utf-8",
@@ -285,7 +289,7 @@ confidence_threshold: 0.01
             )
             config = root / "config.yaml"
             config.write_text(
-                f'skills_dir: "{skills_dir}"\nconfidence_threshold: 0.01\n',
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.01\n",
                 encoding="utf-8",
             )
 

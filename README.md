@@ -9,6 +9,40 @@ suggestions for decomposed execution tasks.
 It is built for Codex, Claude Code, OpenCode, custom terminal agents, and any
 workflow where slash commands or skills have become too many to remember.
 
+## Quick Demo
+
+Route already-decomposed tasks:
+
+```bash
+printf '%s\n' \
+  "inspect failing tests" \
+  "write a regression test" \
+  "update README docs" \
+  | task-skill-router --batch
+```
+
+The output is JSON, so agents and shell scripts can consume it directly:
+
+```json
+{
+  "batch": true,
+  "results": [
+    {
+      "task": "inspect failing tests",
+      "matches": [
+        {
+          "skill": "systematic-debugging",
+          "installed": true,
+          "confidence": 0.42,
+          "mode": "recommend"
+        }
+      ]
+    }
+  ],
+  "missing_skills": []
+}
+```
+
 ## What It Does
 
 The agent should not run the router before understanding the request. The right
