@@ -44,6 +44,19 @@ jobs:
           bash -n install-macos.sh
           bash -n install-linux.sh
 
+      - name: Smoke test shell installer
+        if: runner.os != 'Windows'
+        run: |
+          tmp="$(mktemp -d)"
+          TASK_SKILL_ROUTER_HOME="$tmp/home" \
+          XDG_CONFIG_HOME="$tmp/config" \
+          HOME="$tmp/user" \
+          bash install.sh
+          "$tmp/home/task-skill-router.py" "write docs" || true
+          test -f "$tmp/home/task-skill-router.py"
+          test -f "$tmp/config/task-skill-router/config.yaml"
+          test -f "$tmp/config/task-skill-router/community.yaml"
+
       - name: Check PowerShell installers
         if: runner.os == 'Windows'
         shell: pwsh
@@ -56,3 +69,19 @@ jobs:
               throw "PowerShell parse errors in ${path}: $($errors | Out-String)"
             }
           }
+
+      - name: Smoke test PowerShell installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP ("task-skill-router-" + [System.Guid]::NewGuid().ToString())
+          $install = Join-Path $tmp "home"
+          $config = Join-Path $tmp "config"
+          $bin = Join-Path $tmp "bin"
+          .\install.ps1 -InstallDir $install -ConfigDir $config -BinDir $bin
+          python (Join-Path $install "task-skill-router.py") "write docs"
+          if ($LASTEXITCODE -notin @(0, 1)) { throw "router exited with unexpected code $LASTEXITCODE" }
+          if (-not (Test-Path (Join-Path $install "task-skill-router.py"))) { throw "router was not installed" }
+          if (-not (Test-Path (Join-Path $config "config.yaml"))) { throw "config was not installed" }
+          if (-not (Test-Path (Join-Path $config "community.yaml"))) { throw "community mapping was not installed" }
+          if (-not (Test-Path (Join-Path $bin "task-skill-router.cmd"))) { throw "command shim was not installed" }

@@ -1,0 +1,36 @@
+name: Skill mapping suggestion
+description: Suggest a community mapping that improves routing.
+title: "[Mapping]: "
+labels: ["mapping"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest public, generic mappings only. Do not include private company workflows, private skill text, or sensitive task examples.
+  - type: input
+    id: skill
+    attributes:
+      label: Skill name
+      placeholder: systematic-debugging
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: One or two sentences describing when this skill should be recommended.
+    validations:
+      required: true
+  - type: textarea
+    id: tags
+    attributes:
+      label: Suggested tags or task wording
+      placeholder: debug, failing tests, root cause, exception
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Synthetic example tasks
+      description: Use fake examples only.
+      render: text

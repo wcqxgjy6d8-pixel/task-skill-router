@@ -1,5 +1,9 @@
 # task-skill-router
 
+[![CI](https://github.com/wcqxgjy6d8-pixel/task-skill-router/actions/workflows/ci.yml/badge.svg)](https://github.com/wcqxgjy6d8-pixel/task-skill-router/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/wcqxgjy6d8-pixel/task-skill-router)](https://github.com/wcqxgjy6d8-pixel/task-skill-router/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Post-decomposition skill routing for terminal coding agents.
 
 task-skill-router scans one or more `SKILL.md` libraries, reads their frontmatter,
@@ -8,6 +12,9 @@ suggestions for decomposed execution tasks.
 
 It is built for Codex, Claude Code, OpenCode, custom terminal agents, and any
 workflow where slash commands or skills have become too many to remember.
+
+Local-first by design: no telemetry, no background service, and no maintainer
+data collection. See [Privacy](PRIVACY.md).
 
 ## Quick Demo
 
