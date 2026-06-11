@@ -1,0 +1,5 @@
+skills_dirs:
+  - "./examples/demo-skills"
+community_mapping: "./examples/demo-community.yaml"
+confidence_threshold: 0.05
+max_matches: 3

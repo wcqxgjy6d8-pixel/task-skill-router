@@ -18,14 +18,16 @@ data collection. See [Privacy](PRIVACY.md).
 
 ## Quick Demo
 
-Route already-decomposed tasks:
+Run this from a local clone. It uses synthetic demo skills in
+[`examples/`](examples/), so you do not need real Codex or Claude Code skills
+installed first.
 
 ```bash
 printf '%s\n' \
-  "inspect failing tests" \
-  "write a regression test" \
+  "inspect failing tests and identify root cause" \
   "update README docs" \
-  | task-skill-router --batch
+  "search research papers for related work" \
+  | TASK_SKILL_ROUTER_CONFIG=examples/demo-config.yaml python3 task-skill-router.py --batch
 ```
 
 The output is JSON, so agents and shell scripts can consume it directly:
@@ -35,7 +37,7 @@ The output is JSON, so agents and shell scripts can consume it directly:
   "batch": true,
   "results": [
     {
-      "task": "inspect failing tests",
+      "task": "inspect failing tests and identify root cause",
       "matches": [
         {
           "skill": "systematic-debugging",
@@ -46,7 +48,12 @@ The output is JSON, so agents and shell scripts can consume it directly:
       ]
     }
   ],
-  "missing_skills": []
+  "missing_skills": [
+    {
+      "skill": "arxiv",
+      "install_hint": "Install an arxiv or literature-search skill before research-heavy tasks."
+    }
+  ]
 }
 ```
 

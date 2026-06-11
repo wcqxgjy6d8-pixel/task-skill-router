@@ -37,6 +37,9 @@ jobs:
       - name: Compile router
         run: python -m py_compile task-skill-router.py
 
+      - name: Run demo smoke test
+        run: python tests/demo_smoke.py
+
       - name: Check shell installers
         if: runner.os != 'Windows'
         run: |

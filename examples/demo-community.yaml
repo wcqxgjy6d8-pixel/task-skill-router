@@ -1,0 +1,5 @@
+skills:
+  arxiv:
+    description: "Search academic papers and technical literature before research-heavy tasks."
+    tags: ["research", "papers", "literature", "academic"]
+    install: "Install an arxiv or literature-search skill before research-heavy tasks."
