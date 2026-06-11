@@ -37,6 +37,16 @@ printf '%s\n' \
   | task-skill-router --batch
 ```
 
+To record recommendations for later hit-rate review:
+
+```bash
+printf '%s\n' \
+  "<task 1>" \
+  "<task 2>" \
+  "<task 3>" \
+  | task-skill-router --batch --record
+```
+
 If `task-skill-router` is not on `PATH`, use:
 
 ```bash
@@ -55,7 +65,9 @@ Each match includes:
 - `reason`: why the skill matched
 - `install_hint`: how to install or add the skill when missing
 
-Batch output also includes top-level `missing_skills`.
+Batch output also includes top-level `missing_skills`. When `--record` is used,
+output includes `audit_event_id` or `audit_event_ids` that reviewers can use for
+hit-rate judgments.
 
 ## What To Do With The Result
 
@@ -81,6 +93,22 @@ operations must stay in `recommend` mode.
 | Auto-run risky workflows | Ask before auth/config/deploy/delete work |
 | Use stale copied skill text | Load the current `SKILL.md` from `path` |
 | Trust completion claims | Verify with tests, build, or direct checks |
+
+## Hit-Rate Review
+
+Use this only after there is enough evidence about the outcome.
+
+```bash
+task-skill-router --pending-reviews --limit 20
+task-skill-router --review <audit_event_id> --judgment hit --evaluator agent:reviewer
+task-skill-router --review <audit_event_id> --judgment partial --correct-skill <skill-name> --evaluator skill:<name>
+task-skill-router --review <audit_event_id> --judgment miss --correct-skill <skill-name> --evaluator gpt-5
+task-skill-router --stats
+```
+
+Use `hit` when the top recommendation was appropriate, `partial` when it helped
+but was incomplete, `miss` when it was wrong, and `unknown` when there is not
+enough evidence.
 
 ## Integration Notes
 

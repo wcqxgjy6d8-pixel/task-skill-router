@@ -271,6 +271,96 @@ confidence_threshold: 0.01
             self.assertEqual(data["results"][0]["matches"][0]["skill"], "debug")
             self.assertEqual(data["missing_skills"][0]["skill"], "arxiv")
 
+    def test_audit_records_reviews_and_stats(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            audit_log = root / "events.jsonl"
+            write_skill(
+                skills_dir,
+                "docs",
+                "docs",
+                "Write documentation and README files",
+                ["docs", "readme"],
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f'skills_dir: "{skills_dir}"\nconfidence_threshold: 0.01\n',
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--record",
+                    "--audit-log",
+                    str(audit_log),
+                    "write docs",
+                ],
+                check=True,
+                capture_output=True,
+                env={"TASK_SKILL_ROUTER_CONFIG": str(config)},
+                text=True,
+            )
+
+            data = json.loads(proc.stdout)
+            event_id = data["audit_event_id"]
+            self.assertTrue(event_id.startswith("rec_"))
+            self.assertTrue(audit_log.is_file())
+
+            pending_proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--pending-reviews",
+                    "--audit-log",
+                    str(audit_log),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            pending = json.loads(pending_proc.stdout)
+            self.assertEqual(pending["pending_reviews"][0]["event_id"], event_id)
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--review",
+                    event_id,
+                    "--judgment",
+                    "hit",
+                    "--evaluator",
+                    "agent:reviewer",
+                    "--audit-log",
+                    str(audit_log),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            stats_proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--stats",
+                    "--audit-log",
+                    str(audit_log),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            stats = json.loads(stats_proc.stdout)
+            self.assertEqual(stats["recommendations"], 1)
+            self.assertEqual(stats["reviewed"], 1)
+            self.assertEqual(stats["pending"], 0)
+            self.assertEqual(stats["counts"]["hit"], 1)
+            self.assertEqual(stats["full_hit_rate"], 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

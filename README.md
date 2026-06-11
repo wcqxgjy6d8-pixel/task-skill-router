@@ -100,7 +100,13 @@ used by this repository.
 task-skill-router is cross-platform. The router itself is a Python script and
 works on macOS, Linux, Windows PowerShell, Git Bash, and WSL.
 
-### macOS / Linux / WSL / Git Bash
+### Apple macOS
+
+One-line install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install-macos.sh | bash
+```
 
 From a local clone:
 
@@ -108,20 +114,13 @@ From a local clone:
 git clone https://github.com/wcqxgjy6d8-pixel/task-skill-router.git
 cd task-skill-router
 python3 -m pip install -r requirements.txt
-./install.sh
+./install-macos.sh
 ```
 
-One-line GitHub install:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install.sh \
-  | TASK_SKILL_ROUTER_REPO=wcqxgjy6d8-pixel/task-skill-router bash
-```
-
-The shell installer places:
+The macOS installer places:
 
 - executable: `~/.task-skill-router/task-skill-router.py`
-- symlink: `~/.local/bin/task-skill-router`
+- command: `~/.local/bin/task-skill-router`
 - config: `~/.config/task-skill-router/config.yaml`
 - community mappings: `~/.config/task-skill-router/community.yaml`
 
@@ -132,7 +131,7 @@ Make sure `~/.local/bin` is on your `PATH`.
 One-line install:
 
 ```powershell
-irm https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install-windows.ps1 | iex
 ```
 
 From a local clone:
@@ -141,10 +140,10 @@ From a local clone:
 git clone https://github.com/wcqxgjy6d8-pixel/task-skill-router.git
 cd task-skill-router
 python -m pip install -r requirements.txt
-.\install.ps1
+.\install-windows.ps1
 ```
 
-The PowerShell installer places:
+The Windows installer places:
 
 - executable: `%USERPROFILE%\.task-skill-router\task-skill-router.py`
 - command shim: `%USERPROFILE%\.local\bin\task-skill-router.cmd`
@@ -153,6 +152,41 @@ The PowerShell installer places:
 
 It also adds `%USERPROFILE%\.local\bin` to the user `PATH`. Open a new terminal
 if `task-skill-router` is not found immediately after installation.
+
+### Linux
+
+One-line install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install-linux.sh | bash
+```
+
+From a local clone:
+
+```bash
+git clone https://github.com/wcqxgjy6d8-pixel/task-skill-router.git
+cd task-skill-router
+python3 -m pip install -r requirements.txt
+./install-linux.sh
+```
+
+The Linux installer places:
+
+- executable: `~/.task-skill-router/task-skill-router.py`
+- command: `~/.local/bin/task-skill-router`
+- config: `~/.config/task-skill-router/config.yaml`
+- community mappings: `~/.config/task-skill-router/community.yaml`
+
+Make sure `~/.local/bin` is on your `PATH`.
+
+### Generic Shell Installer
+
+For WSL, Git Bash, and other POSIX-like shells:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install.sh \
+  | TASK_SKILL_ROUTER_REPO=wcqxgjy6d8-pixel/task-skill-router bash
+```
 
 ## Usage
 
@@ -297,6 +331,59 @@ This subtask would benefit from the arxiv skill, but it is not installed.
 Install it before research-heavy tasks to improve execution quality.
 ```
 
+## Hit-Rate Auditing
+
+task-skill-router can record local recommendation events so other skills,
+agents, or stronger AI reviewers can measure whether the recommended skill was
+actually useful. This is local JSONL auditing, not telemetry. Nothing is sent to
+the project maintainers.
+
+Record recommendations:
+
+```bash
+task-skill-router --record "write README docs"
+printf '%s\n' "inspect failing tests" "write regression test" | task-skill-router --batch --record
+```
+
+Default audit log:
+
+```text
+~/.task-skill-router/audit/events.jsonl
+```
+
+Ask another skill, another agent, or a stronger model to review pending events:
+
+```bash
+task-skill-router --pending-reviews --limit 20
+```
+
+The reviewer should inspect the task, suggested skills, and actual outcome, then
+write back one judgment:
+
+```bash
+task-skill-router --review rec_xxxxx --judgment hit --evaluator agent:reviewer
+task-skill-router --review rec_xxxxx --judgment partial --correct-skill docs --evaluator skill:code-review
+task-skill-router --review rec_xxxxx --judgment miss --correct-skill systematic-debugging --evaluator gpt-5
+```
+
+Supported judgments:
+
+- `hit`: the top recommendation was useful and appropriate
+- `partial`: the recommendation helped, but a better skill existed or another
+  skill should also have been recommended
+- `miss`: the recommendation was wrong
+- `unknown`: the reviewer cannot tell from available evidence
+
+Summarize hit rate:
+
+```bash
+task-skill-router --stats
+```
+
+The stats output includes full hit rate, partial-credit hit rate, counts by
+judgment, by top recommended skill, and by evaluator. Use this to improve
+`config/community.yaml`, skill frontmatter, and threshold settings.
+
 ## Community Mapping
 
 `config/community.yaml` maps common task wording to skill names. It helps when a
@@ -337,8 +424,11 @@ python3 -m pip install -r requirements.txt
 python3 -m unittest discover -s tests
 python3 -m py_compile task-skill-router.py
 bash -n install.sh
+bash -n install-macos.sh
+bash -n install-linux.sh
 # Optional, when PowerShell is available:
 pwsh -NoProfile -Command '$errors = $null; [System.Management.Automation.Language.Parser]::ParseFile("install.ps1", [ref]$null, [ref]$errors) > $null; if ($errors) { throw $errors }'
+pwsh -NoProfile -Command '$errors = $null; [System.Management.Automation.Language.Parser]::ParseFile("install-windows.ps1", [ref]$null, [ref]$errors) > $null; if ($errors) { throw $errors }'
 ```
 
 ## Open Source Checklist

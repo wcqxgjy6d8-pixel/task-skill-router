@@ -20,14 +20,17 @@ Exit code:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
 import re
 import sys
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 try:
     import yaml as _yaml
@@ -41,9 +44,11 @@ except ImportError:  # pragma: no cover - exercised only without PyYAML installe
 DEFAULT_SKILLS_DIR = "~/.task-skill-router/skills"
 DEFAULT_CONFIG_PATH = "~/.config/task-skill-router/config.yaml"
 DEFAULT_COMMUNITY_PATH = ""
+DEFAULT_AUDIT_LOG_PATH = "~/.task-skill-router/audit/events.jsonl"
 MAX_MATCHES = 5
 CONFIDENCE_THRESHOLD = 0.12
 VALID_MODES = {"auto-load", "auto-run", "recommend"}
+VALID_JUDGMENTS = {"hit", "miss", "partial", "unknown"}
 
 HIGH_RISK_PATTERNS = [
     r"config\b", r"\.env", r"auth", r"delete", r"remove", r"rm\s",
@@ -452,6 +457,221 @@ def select_mode(
 
 
 # ──────────────────────────────────────────────
+#  Recommendation audit and hit-rate statistics
+# ──────────────────────────────────────────────
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def audit_log_path(path: str | None = None) -> Path:
+    resolved = (
+        path
+        or os.environ.get("TASK_SKILL_ROUTER_AUDIT_LOG")
+        or os.environ.get("SKILL_ROUTER_AUDIT_LOG")
+        or DEFAULT_AUDIT_LOG_PATH
+    )
+    return Path(resolved).expanduser()
+
+
+def append_jsonl(path: str | Path, event: dict[str, Any]) -> None:
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
+        fh.write("\n")
+
+
+def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
+    p = Path(path).expanduser()
+    if not p.is_file():
+        return []
+    events: list[dict[str, Any]] = []
+    with p.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(event, dict):
+                events.append(event)
+    return events
+
+
+def recommendation_event_id(result: dict[str, Any]) -> str:
+    payload = {
+        "task": result.get("task", ""),
+        "matches": [
+            {
+                "skill": match.get("skill", ""),
+                "installed": match.get("installed", False),
+                "confidence": match.get("confidence", 0),
+            }
+            for match in result.get("matches", [])[:5]
+        ],
+    }
+    digest = hashlib.sha1(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"rec_{digest}_{uuid4().hex[:8]}"
+
+
+def compact_recommendation_result(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "task": result.get("task", ""),
+        "top_skill": result["matches"][0]["skill"] if result.get("matches") else "",
+        "matches": [
+            {
+                "skill": match.get("skill", ""),
+                "installed": match.get("installed", False),
+                "confidence": match.get("confidence", 0),
+                "mode": match.get("mode", ""),
+                "reason": match.get("reason", ""),
+            }
+            for match in result.get("matches", [])
+        ],
+        "missing_skills": result.get("missing_skills", []),
+        "high_risk": result.get("high_risk", False),
+        "no_match_reason": result.get("no_match_reason"),
+    }
+
+
+def record_recommendation(result: dict[str, Any], path: str | None = None) -> str:
+    event_id = recommendation_event_id(result)
+    result["audit_event_id"] = event_id
+    event = {
+        "type": "recommendation",
+        "event_id": event_id,
+        "created_at": utc_now(),
+        "recommendation": compact_recommendation_result(result),
+    }
+    append_jsonl(audit_log_path(path), event)
+    return event_id
+
+
+def record_review(
+    event_id: str,
+    judgment: str,
+    evaluator: str,
+    notes: str = "",
+    correct_skill: str = "",
+    path: str | None = None,
+) -> dict[str, Any]:
+    judgment = judgment.lower().strip()
+    if judgment not in VALID_JUDGMENTS:
+        raise ValueError(f"judgment must be one of: {', '.join(sorted(VALID_JUDGMENTS))}")
+    event = {
+        "type": "review",
+        "event_id": event_id,
+        "created_at": utc_now(),
+        "judgment": judgment,
+        "evaluator": evaluator or "unknown",
+        "correct_skill": correct_skill,
+        "notes": notes,
+    }
+    append_jsonl(audit_log_path(path), event)
+    return event
+
+
+def audit_snapshot(path: str | None = None) -> dict[str, dict[str, Any]]:
+    snapshot: dict[str, dict[str, Any]] = {}
+    for event in read_jsonl(audit_log_path(path)):
+        event_type = event.get("type")
+        event_id = str(event.get("event_id", ""))
+        if not event_id:
+            continue
+        if event_type == "recommendation":
+            snapshot.setdefault(event_id, {})["recommendation"] = event
+        elif event_type == "review":
+            snapshot.setdefault(event_id, {}).setdefault("reviews", []).append(event)
+    return snapshot
+
+
+def pending_reviews(path: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for event_id, item in audit_snapshot(path).items():
+        if item.get("reviews"):
+            continue
+        rec_event = item.get("recommendation")
+        if not rec_event:
+            continue
+        rec = rec_event.get("recommendation", {})
+        rows.append({
+            "event_id": event_id,
+            "created_at": rec_event.get("created_at", ""),
+            "task": rec.get("task", ""),
+            "top_skill": rec.get("top_skill", ""),
+            "matches": rec.get("matches", []),
+            "missing_skills": rec.get("missing_skills", []),
+        })
+    rows.sort(key=lambda row: row["created_at"])
+    return rows[:max(1, limit)]
+
+
+def audit_stats(path: str | None = None) -> dict[str, Any]:
+    snapshot = audit_snapshot(path)
+    reviewed: list[dict[str, Any]] = []
+    pending = 0
+    for event_id, item in snapshot.items():
+        rec_event = item.get("recommendation")
+        if not rec_event:
+            continue
+        reviews = item.get("reviews") or []
+        if not reviews:
+            pending += 1
+            continue
+        latest_review = sorted(reviews, key=lambda event: event.get("created_at", ""))[-1]
+        reviewed.append({
+            "event_id": event_id,
+            "recommendation": rec_event.get("recommendation", {}),
+            "review": latest_review,
+        })
+
+    counts = {judgment: 0 for judgment in sorted(VALID_JUDGMENTS)}
+    by_skill: dict[str, dict[str, Any]] = {}
+    by_evaluator: dict[str, dict[str, Any]] = {}
+    for row in reviewed:
+        judgment = row["review"].get("judgment", "unknown")
+        if judgment not in counts:
+            judgment = "unknown"
+        counts[judgment] += 1
+        top_skill = row["recommendation"].get("top_skill", "") or "(none)"
+        evaluator = row["review"].get("evaluator", "unknown") or "unknown"
+        for bucket, key in ((by_skill, top_skill), (by_evaluator, evaluator)):
+            bucket.setdefault(key, {"total": 0, "hit": 0, "partial": 0, "miss": 0, "unknown": 0})
+            bucket[key]["total"] += 1
+            bucket[key][judgment] += 1
+
+    reviewed_count = len(reviewed)
+    scored_count = counts["hit"] + counts["miss"] + counts["partial"]
+    full_hit_rate = counts["hit"] / scored_count if scored_count else None
+    partial_credit_rate = (
+        (counts["hit"] + 0.5 * counts["partial"]) / scored_count
+        if scored_count
+        else None
+    )
+
+    return {
+        "audit_log": str(audit_log_path(path)),
+        "recommendations": sum(1 for item in snapshot.values() if item.get("recommendation")),
+        "reviewed": reviewed_count,
+        "pending": pending,
+        "counts": counts,
+        "full_hit_rate": round(full_hit_rate, 4) if full_hit_rate is not None else None,
+        "partial_credit_hit_rate": (
+            round(partial_credit_rate, 4)
+            if partial_credit_rate is not None
+            else None
+        ),
+        "by_skill": by_skill,
+        "by_evaluator": by_evaluator,
+    }
+
+
+# ──────────────────────────────────────────────
 #  Main recommendation
 # ──────────────────────────────────────────────
 
@@ -689,6 +909,15 @@ def recommend_batch(tasks: list[str]) -> dict[str, Any]:
     }
 
 
+def record_batch_recommendations(result: dict[str, Any], path: str | None = None) -> list[str]:
+    event_ids: list[str] = []
+    for item in result.get("results", []):
+        if isinstance(item, dict):
+            event_ids.append(record_recommendation(item, path))
+    result["audit_event_ids"] = event_ids
+    return event_ids
+
+
 # ──────────────────────────────────────────────
 #  CLI entry point
 # ──────────────────────────────────────────────
@@ -698,12 +927,99 @@ def main() -> None:
         description="Route decomposed terminal-agent tasks to matching SKILL.md workflows."
     )
     parser.add_argument(
+        "--audit-log",
+        help="Path to recommendation audit JSONL. Defaults to ~/.task-skill-router/audit/events.jsonl.",
+    )
+    parser.add_argument(
+        "--record",
+        action="store_true",
+        help="Record recommendation events for later hit-rate review.",
+    )
+    parser.add_argument(
+        "--pending-reviews",
+        action="store_true",
+        help="Print recommendations that do not yet have hit-rate reviews.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Limit rows returned by --pending-reviews.",
+    )
+    parser.add_argument(
+        "--review",
+        metavar="EVENT_ID",
+        help="Append a review judgment for a recorded recommendation event.",
+    )
+    parser.add_argument(
+        "--judgment",
+        choices=sorted(VALID_JUDGMENTS),
+        help="Review judgment for --review: hit, partial, miss, or unknown.",
+    )
+    parser.add_argument(
+        "--evaluator",
+        default="manual",
+        help="Reviewer identity, e.g. user, skill:code-review, agent:planner, gpt-5.",
+    )
+    parser.add_argument(
+        "--correct-skill",
+        default="",
+        help="Optional correct skill name when judgment is miss or partial.",
+    )
+    parser.add_argument(
+        "--notes",
+        default="",
+        help="Optional short review notes.",
+    )
+    parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Print recommendation hit-rate statistics from the audit log.",
+    )
+    parser.add_argument(
         "--batch",
         action="store_true",
         help="Read one decomposed task per stdin line and route each task.",
     )
     parser.add_argument("task", nargs="*", help="Task text to route.")
     args = parser.parse_args()
+
+    if args.pending_reviews:
+        print(json.dumps(
+            {
+                "audit_log": str(audit_log_path(args.audit_log)),
+                "pending_reviews": pending_reviews(args.audit_log, args.limit),
+            },
+            indent=2,
+            ensure_ascii=False,
+        ))
+        return
+
+    if args.stats:
+        print(json.dumps(audit_stats(args.audit_log), indent=2, ensure_ascii=False))
+        return
+
+    if args.review:
+        if not args.judgment:
+            print(json.dumps(
+                {"error": "--judgment is required with --review"},
+                ensure_ascii=False,
+            ))
+            sys.exit(1)
+        try:
+            event = record_review(
+                args.review,
+                args.judgment,
+                args.evaluator,
+                notes=args.notes,
+                correct_skill=args.correct_skill,
+                path=args.audit_log,
+            )
+        except ValueError as exc:
+            print(json.dumps({"error": str(exc)}, ensure_ascii=False))
+            sys.exit(1)
+        print(json.dumps(event, indent=2, ensure_ascii=False))
+        return
 
     if args.batch:
         stdin_tasks = [line.strip() for line in sys.stdin if line.strip()]
@@ -714,6 +1030,8 @@ def main() -> None:
             sys.exit(1)
 
         result = recommend_batch(tasks)
+        if args.record:
+            record_batch_recommendations(result, args.audit_log)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         if result["num_without_matches"] == result["num_tasks"]:
             sys.exit(1)
@@ -729,6 +1047,8 @@ def main() -> None:
         sys.exit(1)
 
     result = recommend(task)
+    if args.record:
+        record_recommendation(result, args.audit_log)
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
     if not result["matches"]:
