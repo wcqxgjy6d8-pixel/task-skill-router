@@ -322,6 +322,9 @@ Environment variables override config values:
 
 ## Agent Integration
 
+Copy-paste templates are available in
+[docs/integration-templates.md](docs/integration-templates.md).
+
 ### Codex
 
 Add this to `AGENTS.md`:
