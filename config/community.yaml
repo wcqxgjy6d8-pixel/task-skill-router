@@ -1,0 +1,143 @@
+# task-skill-router community skill mapping
+# ────────────────────────────────────────────────
+# This file maps common task descriptions to skill names
+# so that the recommender can find skills that don't
+# have a clear SKILL.md description match.
+#
+# How to contribute:
+# 1. Fork the repo
+# 2. Add your mapping below under `skills:`
+# 3. Submit a PR
+#
+# Schema per entry:
+#   <skill_name>:
+#     description: "What this skill does (1-2 sentences)"
+#     tags: ["related", "keywords"]
+#     command: "optional CLI command for auto-run"
+#     install: "optional install hint shown when the skill is not installed"
+#     mode: "auto-load" | "auto-run" | "recommend"
+
+skills:
+  # ── Dev / workflow ──────────────────────
+  writing-plans:
+    description: "Break down a task into structured plans, milestones, or task lists"
+    tags: ["plan", "planning", "task breakdown", "milestone", "epic"]
+
+  subagent-driven-development:
+    description: "Execute plans via parallel sub-tasks with delegated agents"
+    tags: ["subtask", "parallel", "worker", "delegate", "orchestrate"]
+
+  brainstorming:
+    description: "Creative ideation, feature design, and requirement exploration"
+    tags: ["idea", "design", "creativity", "feature spec", "requirement"]
+
+  test-driven-development:
+    description: "Implement features using RED-GREEN-REFACTOR cycle"
+    tags: ["tdd", "test first", "implementation", "coding", "refactor"]
+
+  codebase-intelligence:
+    description: "Build symbol index and understand large codebase structure"
+    tags: ["codebase", "architecture", "onboarding", "symbol index"]
+
+  systematic-debugging:
+    description: "Root cause analysis for bugs, test failures, crashes, exceptions"
+    tags: ["debug", "bug fixing", "root cause", "error", "crash", "inspect failing tests", "failing test", "investigate failure"]
+
+  verification-before-completion:
+    description: "Run verification gates before claiming work is done: tests, build, validation, and output checks"
+    tags: ["verification", "validation", "pre-commit", "quality gate", "verify", "validate", "check", "done", "completion gate"]
+
+  scope-discipline:
+    description: "Minimal change engineering — do exactly what was asked, nothing more"
+    tags: ["scope control", "minimal change", "cleanup", "refactor"]
+
+  # ── Code review ─────────────────────────
+  requesting-code-review:
+    description: "Request structured code review with security, quality checks, and PR review workflows"
+    tags: ["code review", "pr review", "security scan", "quality", "review", "audit", "quality check"]
+
+  chinese-code-review:
+    description: "Chinese-language code review with templates and tone guidance"
+    tags: ["chinese review", "中文 review", "code review china"]
+
+  # ── Documentation ───────────────────────
+  chinese-documentation:
+    description: "Write Chinese documentation with proper typography and formatting — 中文文檔排版、寫 README、技術文件"
+    tags: ["documentation", "chinese writing", "排版", "docs", "文檔", "文件", "readme", "說明書", "技術文檔"]
+
+  chinese-commit-conventions:
+    description: "Conventional Commits adapted for Chinese-language projects"
+    tags: ["commit message", "commit convention", "conventional commits"]
+
+  chinese-git-workflow:
+    description: "Git workflow for Chinese platforms (Gitee, GitLab CN, Coding)"
+    tags: ["git", "gitee", "coding", "chinese git", "mirror"]
+
+  # ── UI / design ─────────────────────────
+  design-taste-frontend:
+    description: "Frontend design for landing pages, portfolios, marketing sites"
+    tags: ["ui design", "frontend", "landing page", "visual design"]
+
+  redesign-existing-projects:
+    description: "Audit-first redesign of existing websites and applications"
+    tags: ["redesign", "ui audit", "existing project", "visual overhaul"]
+
+  high-end-visual-design:
+    description: "Premium, agency-quality visual design for luxury brands"
+    tags: ["premium design", "luxury", "agency quality", "visual"]
+
+  # ── MCP / tools ─────────────────────────
+  mcp-builder:
+    description: "Build production-grade MCP servers that connect AI to external capabilities"
+    tags: ["mcp", "tool server", "protocol", "llm tool"]
+
+  ecosystem-tool-installation:
+    description: "Install, configure, and integrate external tools and packages"
+    tags: ["install", "integration", "package", "tool setup"]
+
+  # ── Translation ──────────────────────────
+  anysearch:
+    description: "Translate text between languages — 翻譯、中英互譯、翻成中文"
+    tags: ["translate", "translation", "翻譯", "中英互譯", "machine translation"]
+
+  # ── Research ────────────────────────────
+  arxiv:
+    description: "Search and discover academic papers on arXiv"
+    tags: ["paper", "academic research", "research paper", "literature"]
+
+  blogwatcher:
+    description: "Monitor blogs and RSS feeds for new content"
+    tags: ["blog", "rss", "monitoring", "feed", "content tracking"]
+
+  # ── Orchestration ───────────────────────
+  multi-agent-orchestration:
+    description: "Orchestrate multiple AI agents working in parallel on independent tasks"
+    tags: ["multi-agent", "parallel agents", "orchestration", "coordination"]
+
+  dispatching-parallel-agents:
+    description: "Split large tasks into independent workstreams for parallel execution"
+    tags: ["parallel", "dispatch", "independent tasks", "concurrent"]
+
+  # ── Repetitive ─────────────────────────
+  finishing-a-development-branch:
+    description: "Guide the finishing workflow: commit, PR, merge, or cleanup"
+    tags: ["branch finish", "merge", "pr", "cleanup", "git polish"]
+
+  github-pr-workflow:
+    description: "GitHub PR lifecycle: branch, commit, open, review, merge"
+    tags: ["github", "pr", "pull request", "github workflow"]
+
+  # ── Desktop / browser ───────────────────
+  macos-computer-use:
+    description: "Drive macOS desktop in the background — screenshots, clicks, keybinds"
+    tags: ["macos", "desktop", "cua", "browser", "ui automation"]
+
+  # ── Schedule / cron ─────────────────────
+  schedule-wakeup:
+    description: "Schedule recurring or one-shot agent wakeups via cron"
+    tags: ["cron", "schedule", "timer", "recurring", "wakeup"]
+
+  # ── Karpathy / reliability ──────────────
+  karpathy-framework:
+    description: "Apply Karpathy engineering realism: demo vs deployment, verify don't trust"
+    tags: ["karpathy", "reliability", "engineering", "march of nines", "trust"]

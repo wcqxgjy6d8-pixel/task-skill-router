@@ -1,0 +1,38 @@
+# task-skill-router configuration
+# Place at ~/.config/task-skill-router/config.yaml
+
+# ──────────────────────────────────────────
+#  Skill libraries
+# ──────────────────────────────────────────
+# Put every SKILL.md library you want the router to search here.
+# First match wins when two libraries contain the same skill name.
+skills_dirs:
+  - "~/.task-skill-router/skills"
+  - "~/.codex/skills"
+  - "~/.claude/skills"
+
+# Add any other custom skill libraries you use:
+#  - "~/.agents/skills"
+
+# ──────────────────────────────────────────
+#  Community skill mapping file
+# ──────────────────────────────────────────
+community_mapping: "~/.config/task-skill-router/community.yaml"
+
+# ──────────────────────────────────────────
+#  Matching thresholds
+# ──────────────────────────────────────────
+confidence_threshold: 0.12   # Minimum TF-IDF cosine score to consider a match
+max_matches: 5               # Maximum skills to return
+
+# ──────────────────────────────────────────
+#  Preference and mode controls
+# ──────────────────────────────────────────
+preferred_skills:
+  # - systematic-debugging
+
+# Force specific skills to always use a certain mode.
+# Valid modes: auto-load, auto-run, recommend
+mode_overrides:
+  # example-skill-name: auto-load
+  # dangerous-tool: recommend
