@@ -97,6 +97,11 @@ used by this repository.
 
 ## Installation
 
+task-skill-router is cross-platform. The router itself is a Python script and
+works on macOS, Linux, Windows PowerShell, Git Bash, and WSL.
+
+### macOS / Linux / WSL / Git Bash
+
 From a local clone:
 
 ```bash
@@ -106,14 +111,14 @@ python3 -m pip install -r requirements.txt
 ./install.sh
 ```
 
-One-line GitHub install after you publish the repository:
+One-line GitHub install:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install.sh \
   | TASK_SKILL_ROUTER_REPO=wcqxgjy6d8-pixel/task-skill-router bash
 ```
 
-The installer places:
+The shell installer places:
 
 - executable: `~/.task-skill-router/task-skill-router.py`
 - symlink: `~/.local/bin/task-skill-router`
@@ -121,6 +126,33 @@ The installer places:
 - community mappings: `~/.config/task-skill-router/community.yaml`
 
 Make sure `~/.local/bin` is on your `PATH`.
+
+### Windows PowerShell
+
+One-line install:
+
+```powershell
+irm https://raw.githubusercontent.com/wcqxgjy6d8-pixel/task-skill-router/main/install.ps1 | iex
+```
+
+From a local clone:
+
+```powershell
+git clone https://github.com/wcqxgjy6d8-pixel/task-skill-router.git
+cd task-skill-router
+python -m pip install -r requirements.txt
+.\install.ps1
+```
+
+The PowerShell installer places:
+
+- executable: `%USERPROFILE%\.task-skill-router\task-skill-router.py`
+- command shim: `%USERPROFILE%\.local\bin\task-skill-router.cmd`
+- config: `%USERPROFILE%\.config\task-skill-router\config.yaml`
+- community mappings: `%USERPROFILE%\.config\task-skill-router\community.yaml`
+
+It also adds `%USERPROFILE%\.local\bin` to the user `PATH`. Open a new terminal
+if `task-skill-router` is not found immediately after installation.
 
 ## Usage
 
@@ -304,11 +336,13 @@ missing useful skills.
 python3 -m pip install -r requirements.txt
 python3 -m unittest discover -s tests
 python3 -m py_compile task-skill-router.py
+bash -n install.sh
+# Optional, when PowerShell is available:
+pwsh -NoProfile -Command '$errors = $null; [System.Management.Automation.Language.Parser]::ParseFile("install.ps1", [ref]$null, [ref]$errors) > $null; if ($errors) { throw $errors }'
 ```
 
 ## Open Source Checklist
 
-- Replace `wcqxgjy6d8-pixel` in this README after creating the GitHub repository.
 - Keep private skill paths, tokens, auth state, and local agent memory out of
   issues and fixtures.
 - Treat `auto-run` as experimental. High-risk tasks are forced to `recommend`.
