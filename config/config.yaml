@@ -36,3 +36,30 @@ preferred_skills:
 mode_overrides:
   # example-skill-name: auto-load
   # dangerous-tool: recommend
+
+# ──────────────────────────────────────────
+#  Cross-language matching
+# ──────────────────────────────────────────
+# These mappings expand task text before TF-IDF scoring. They are especially
+# useful when installed skills use English metadata but users type Chinese tasks.
+synonyms:
+  test: ["測試", "测试", "單元測試", "单元测试", "寫測試", "写测试", "測試失敗", "测试失败"]
+  build: ["建置", "構建", "构建", "編譯", "编译", "打包"]
+  compile: ["編譯", "编译"]
+  review: ["審查", "审查", "代碼審查", "代码审查", "檢查代碼", "检查代码", "審計", "审计"]
+  audit: ["審計", "审计", "審查", "审查"]
+  remember: ["記住", "记住", "記憶", "记忆", "記錄", "记录", "記下", "记下", "偏好"]
+  memory: ["記憶", "记忆", "偏好"]
+  workflow: ["工作流", "多 agent", "多Agent", "並行", "并行", "協作", "协作"]
+  parallel: ["並行", "并行", "多 agent", "多Agent"]
+  refactor: ["重構", "重构", "重整", "整理代碼", "整理代码"]
+  auth: ["登入", "登录", "登錄", "認證", "认证", "授權", "授权"]
+  login: ["登入", "登录", "登錄"]
+  debug: ["除錯", "调试", "偵錯", "排錯", "排错", "故障", "錯誤", "错误"]
+  ui: ["界面", "介面", "按鈕", "按钮", "元件", "组件"]
+  button: ["按鈕", "按钮"]
+  swiftui: ["swiftui"]
+  docs: ["文檔", "文档", "文件", "說明", "说明", "README", "readme"]
+  route: ["路由", "匹配", "推薦", "推荐"]
+  skill: ["技能"]
+  preference: ["偏好"]

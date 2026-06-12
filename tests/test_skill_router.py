@@ -36,6 +36,12 @@ def write_skill(root: Path, dirname: str, name: str, description: str, tags: lis
     )
 
 
+def write_raw_skill(root: Path, dirname: str, content: str) -> None:
+    skill_dir = root / dirname
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_dir.joinpath("SKILL.md").write_text(content, encoding="utf-8")
+
+
 def yaml_path(path: Path) -> str:
     return "'" + str(path).replace("'", "''") + "'"
 
@@ -281,6 +287,174 @@ confidence_threshold: 0.01
             self.assertEqual(data["num_tasks"], 2)
             self.assertEqual(data["results"][0]["matches"][0]["skill"], "debug")
             self.assertEqual(data["missing_skills"][0]["skill"], "arxiv")
+
+    def test_invalid_skill_frontmatter_falls_back_to_plain_description(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_raw_skill(
+                skills_dir,
+                "insights",
+                """---
+name: insights
+description: session insights engine: token consumption and routing analysis
+---
+
+# insights
+""",
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.01\n",
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend(
+                "session token consumption analysis",
+                config_path=str(config),
+            )
+
+            self.assertEqual(result["num_skills_discovered"], 1)
+            self.assertTrue(result["matches"])
+            self.assertEqual(result["matches"][0]["skill"], "insights")
+
+    def test_chinese_task_matches_english_skill_via_synonyms(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "review",
+                "review",
+                "Local code review and audit workflow",
+                ["review", "audit", "diff"],
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.05\n",
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend("代碼審查 diff", config_path=str(config))
+
+            self.assertTrue(result["matches"])
+            self.assertEqual(result["matches"][0]["skill"], "review")
+
+    def test_chinese_refactor_login_task_matches_refactor_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "test-driven-development",
+                "test-driven-development",
+                "Implement features with tests and refactor login auth flows",
+                ["tdd", "test", "refactor", "auth", "login"],
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.05\n",
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend("重構登入流程", config_path=str(config))
+
+            self.assertTrue(result["matches"])
+            self.assertEqual(result["matches"][0]["skill"], "test-driven-development")
+
+    def test_swiftui_button_task_prefers_ui_or_swift_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "design-taste-frontend",
+                "design-taste-frontend",
+                "Frontend UI design for components and buttons",
+                ["ui", "component", "button", "swiftui"],
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.05\n",
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend("write a SwiftUI button", config_path=str(config))
+
+            self.assertTrue(result["matches"])
+            self.assertEqual(result["matches"][0]["skill"], "design-taste-frontend")
+
+    def test_installed_skill_enriched_by_bilingual_community_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "remember",
+                "remember",
+                "Store and retrieve user memory",
+                ["remember", "memory"],
+            )
+            community = root / "community.yaml"
+            community.write_text(
+                """
+skills:
+  remember:
+    description: "一鍵記憶/查找。當使用者說 記住、記錄、偏好、memory 時使用。"
+    tags: ["記住", "記錄", "偏好", "memory"]
+""".strip(),
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend(
+                "記住我的偏好",
+                skills_dir=str(skills_dir),
+                community_path=str(community),
+            )
+
+            self.assertTrue(result["matches"])
+            self.assertEqual(result["matches"][0]["skill"], "remember")
+
+    def test_missing_community_skill_survives_match_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "swift-dev",
+                "swift-dev",
+                "Swift build test compile workflow",
+                ["swift", "test", "debug", "compile"],
+            )
+            community = root / "community.yaml"
+            community.write_text(
+                """
+skills:
+  systematic-debugging:
+    description: "Root cause analysis for debug test failure"
+    tags: ["debug", "test", "failure", "root cause"]
+    install: "Install systematic-debugging for root-cause analysis."
+""".strip(),
+                encoding="utf-8",
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"""
+skills_dir: {yaml_path(skills_dir)}
+community_mapping: {yaml_path(community)}
+confidence_threshold: 0.01
+max_matches: 1
+""".strip(),
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend(
+                "debug test failure swift",
+                config_path=str(config),
+            )
+
+            self.assertEqual(len(result["matches"]), 1)
+            self.assertEqual(result["missing_skills"][0]["skill"], "systematic-debugging")
 
     def test_audit_records_reviews_and_stats(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

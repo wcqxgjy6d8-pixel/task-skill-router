@@ -19,6 +19,26 @@
 
 skills:
   # ── Dev / workflow ──────────────────────
+  swift-dev:
+    description: "Swift/Xcode macOS project build, run, test, and lint. Swift/Xcode macOS 專案建置/執行/測試/lint。當使用者說 建置、編譯、執行、測試、寫測試、單元測試、build、compile、run、test、swift build、swift test、xcodebuild、Swift Package Manager 時使用。"
+    tags: ["swift", "xcode", "macos", "build", "compile", "run", "test", "lint", "建置", "編譯", "编译", "執行", "执行", "測試", "测试", "單元測試", "单元测试", "xcodebuild", "swift package manager"]
+
+  review:
+    description: "Local code review with snapshot diffing, parallel agent audit, and confidence scoring. 本地代碼審查——快照比對 + 4 Agent 平行審計，信心評分 0-100。當使用者說 審查、code review、審計、檢查代碼、review diff、audit 時使用。"
+    tags: ["review", "code review", "audit", "diff", "審查", "审查", "審計", "审计", "檢查代碼", "检查代码", "代碼審查", "代码审查"]
+
+  remember:
+    description: "One-command memory capture/search, cross-terminal sync, and lifecycle management. 一鍵記憶/查找 + 跨終端同步 + 生命週期管理。當使用者說 記住、/remember、搜尋記憶、記錄、偏好、memory 時使用。"
+    tags: ["remember", "memory", "preference", "record", "search memory", "記住", "记住", "記憶", "记忆", "搜尋記憶", "搜索记忆", "記錄", "记录", "偏好"]
+
+  skill-recommender:
+    description: "Task decomposition and skill routing. 任務拆解 + Skill 路由。當使用者說 推薦 skill、用什麼 skill、匹配 skill、路由、pipeline、拆解任務 時使用。"
+    tags: ["skill", "recommend", "router", "routing", "pipeline", "task decomposition", "推薦 skill", "推荐 skill", "用什麼 skill", "用什么 skill", "匹配 skill", "路由", "拆解任務", "拆解任务"]
+
+  ultrawork:
+    description: "Multi-agent parallel workflow orchestration. 多 Agent 並行 workflow。當使用者說 workflow、並行、fan out、多 agent、協作、ultracode 時使用。"
+    tags: ["workflow", "parallel", "multi-agent", "fan out", "collaboration", "ultracode", "並行", "并行", "多 agent", "協作", "协作", "工作流"]
+
   writing-plans:
     description: "Break down a task into structured plans, milestones, or task lists"
     tags: ["plan", "planning", "task breakdown", "milestone", "epic"]
@@ -32,12 +52,12 @@ skills:
     tags: ["idea", "design", "creativity", "feature spec", "requirement"]
 
   test-driven-development:
-    description: "Implement features using RED-GREEN-REFACTOR cycle"
-    tags: ["tdd", "test first", "implementation", "coding", "refactor"]
+    description: "Implement or refactor features using RED-GREEN-REFACTOR cycle. 使用測試驅動方式實作或重構功能；當使用者說 寫測試、單元測試、重構、登入流程、refactor、test first 時使用。"
+    tags: ["tdd", "test first", "implementation", "coding", "refactor", "test", "unit test", "auth", "login", "重構", "重构", "登入", "登录", "流程", "測試", "测试", "單元測試", "单元测试"]
 
   codebase-intelligence:
-    description: "Build symbol index and understand large codebase structure"
-    tags: ["codebase", "architecture", "onboarding", "symbol index"]
+    description: "Build symbol index and understand large codebase structure before refactors. 建立代碼結構理解，用於重構、登入流程、架構梳理和大型 codebase 分析。"
+    tags: ["codebase", "architecture", "onboarding", "symbol index", "refactor", "auth", "login", "重構", "重构", "登入", "登录", "流程", "架構", "架构"]
 
   systematic-debugging:
     description: "Root cause analysis for bugs, test failures, crashes, exceptions"
@@ -75,8 +95,8 @@ skills:
 
   # ── UI / design ─────────────────────────
   design-taste-frontend:
-    description: "Frontend design for landing pages, portfolios, marketing sites"
-    tags: ["ui design", "frontend", "landing page", "visual design"]
+    description: "Frontend and UI design for landing pages, components, buttons, and visual polish. 前端/UI 設計，用於頁面、元件、按鈕、SwiftUI 視覺與互動設計。"
+    tags: ["ui design", "frontend", "landing page", "visual design", "component", "button", "swiftui", "ui", "按鈕", "按钮", "元件", "组件", "界面", "介面"]
 
   redesign-existing-projects:
     description: "Audit-first redesign of existing websites and applications"

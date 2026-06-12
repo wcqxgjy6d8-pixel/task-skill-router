@@ -176,7 +176,10 @@ def parse_simple_yaml(text: str) -> dict[str, Any]:
 
 def load_yaml_text(text: str) -> dict[str, Any]:
     if _yaml is not None:
-        data = _yaml.safe_load(text) or {}
+        try:
+            data = _yaml.safe_load(text) or {}
+        except Exception:
+            data = parse_simple_yaml(text)
     else:
         data = parse_simple_yaml(text)
     return data if isinstance(data, dict) else {}
@@ -190,6 +193,43 @@ def load_yaml_file(path: str | Path) -> dict[str, Any]:
         return load_yaml_text(p.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def frontmatter_plain_description(text: str) -> str:
+    """Convert invalid SKILL.md frontmatter into searchable fallback text."""
+    lines: list[str] = []
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped == "---":
+            continue
+        if stripped.startswith("#"):
+            continue
+        if stripped.startswith("name:"):
+            continue
+        if stripped.startswith("description:"):
+            value = stripped.split(":", 1)[1].strip()
+            if value:
+                lines.append(value.strip("'\""))
+            continue
+        lines.append(stripped)
+    return " ".join(lines)
+
+
+def load_skill_frontmatter(text: str) -> dict[str, Any]:
+    """Load one SKILL.md frontmatter block without letting invalid YAML crash discovery."""
+    if _yaml is not None:
+        try:
+            data = _yaml.safe_load(text) or {}
+        except Exception:
+            data = parse_simple_yaml(text)
+            data["description"] = frontmatter_plain_description(text)
+    else:
+        data = parse_simple_yaml(text)
+    if not isinstance(data, dict):
+        return {"description": frontmatter_plain_description(text)}
+    if not data.get("description"):
+        data["description"] = frontmatter_plain_description(text)
+    return data
 
 
 # ──────────────────────────────────────────────
@@ -211,6 +251,29 @@ TOKEN_ALIASES = {
     "authorization": "auth",
 }
 
+DEFAULT_SYNONYMS = {
+    "test": ["測試", "测试", "單元測試", "单元测试", "寫測試", "写测试", "測試失敗", "测试失败"],
+    "build": ["建置", "構建", "构建", "編譯", "编译", "打包"],
+    "compile": ["編譯", "编译"],
+    "review": ["審查", "审查", "代碼審查", "代码审查", "檢查代碼", "检查代码", "審計", "审计"],
+    "audit": ["審計", "审计", "審查", "审查"],
+    "remember": ["記住", "记住", "記憶", "记忆", "記錄", "记录", "記下", "记下", "偏好"],
+    "memory": ["記憶", "记忆", "偏好"],
+    "workflow": ["工作流", "多 agent", "多Agent", "並行", "并行", "協作", "协作"],
+    "parallel": ["並行", "并行", "多 agent", "多Agent"],
+    "refactor": ["重構", "重构", "重整", "整理代碼", "整理代码"],
+    "auth": ["登入", "登录", "登錄", "認證", "认证", "授權", "授权"],
+    "login": ["登入", "登录", "登錄"],
+    "debug": ["除錯", "调试", "偵錯", "排錯", "排错", "故障", "錯誤", "错误"],
+    "ui": ["界面", "介面", "按鈕", "按钮", "元件", "组件"],
+    "button": ["按鈕", "按钮"],
+    "swiftui": ["swiftui"],
+    "docs": ["文檔", "文档", "文件", "說明", "说明", "README", "readme"],
+    "route": ["路由", "匹配", "推薦", "推荐"],
+    "skill": ["技能"],
+    "preference": ["偏好"],
+}
+
 
 def normalize_token(token: str) -> str:
     if token in TOKEN_ALIASES:
@@ -229,8 +292,42 @@ def normalize_token(token: str) -> str:
 def tokenize(text: str) -> list[str]:
     """Split text into lowercase tokens, including CJK characters."""
     text = text.lower()
-    tokens = re.findall(r"[a-z][a-z0-9]{1,}|[\u4e00-\u9fff]{1,4}", text)
+    tokens = re.findall(r"[a-z][a-z0-9]{1,}|[\u4e00-\u9fff]{1,6}", text)
     return [normalize_token(token) for token in tokens]
+
+
+def load_synonyms(config: dict[str, Any] | None = None) -> dict[str, list[str]]:
+    """Merge built-in and user-configured synonym mappings."""
+    synonyms: dict[str, list[str]] = {
+        key: list(value)
+        for key, value in DEFAULT_SYNONYMS.items()
+    }
+    if config:
+        configured = config.get("synonyms", {})
+        if isinstance(configured, dict):
+            for canonical, values in configured.items():
+                key = normalize_token(str(canonical).lower())
+                synonyms.setdefault(key, [])
+                for value in as_list(values):
+                    if value not in synonyms[key]:
+                        synonyms[key].append(value)
+    return synonyms
+
+
+def expand_with_synonyms(text: str, synonyms: dict[str, list[str]]) -> str:
+    """Append canonical terms for any configured synonym phrase found in text."""
+    lowered = text.lower()
+    extra: list[str] = []
+    for canonical, values in synonyms.items():
+        canonical_token = normalize_token(str(canonical).lower())
+        if canonical_token in tokenize(text):
+            extra.append(canonical_token)
+        for value in values:
+            value_text = str(value).strip()
+            if value_text and value_text.lower() in lowered:
+                extra.append(canonical_token)
+                break
+    return " ".join([text, *extra])
 
 
 class TfidfIndex:
@@ -241,9 +338,11 @@ class TfidfIndex:
         self.idf: dict[str, float] = {}
         self.num_docs = 0
         self._built = False
+        self.synonyms: dict[str, list[str]] = {}
 
-    def add(self, doc_id: str, text: str) -> None:
-        tokens = tokenize(text)
+    def add(self, doc_id: str, text: str, synonyms: dict[str, list[str]] | None = None) -> None:
+        expanded_text = expand_with_synonyms(text, synonyms or self.synonyms)
+        tokens = tokenize(expanded_text)
         if not tokens:
             return
         self.doc_vectors.append((doc_id, Counter(tokens)))
@@ -262,13 +361,19 @@ class TfidfIndex:
         self.num_docs = n
         self._built = True
 
-    def search(self, query: str, top_k: int = 10) -> list[tuple[str, float]]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 10,
+        synonyms: dict[str, list[str]] | None = None,
+    ) -> list[tuple[str, float]]:
         if not self._built:
             self.build()
         if self.num_docs == 0:
             return []
 
-        q_tokens = tokenize(query)
+        expanded_query = expand_with_synonyms(query, synonyms or self.synonyms)
+        q_tokens = tokenize(expanded_query)
         q_tf = Counter(q_tokens)
         q_norm = math.sqrt(sum(
             (q_tf[tok] * self.idf.get(tok, 0)) ** 2
@@ -366,7 +471,7 @@ def discover_skills(skills_dirs: str | list[str]) -> dict[str, dict[str, Any]]:
             if not m:
                 continue
 
-            meta = load_yaml_text(m.group(1))
+            meta = load_skill_frontmatter(m.group(1))
             skill_name = str(meta.get("name") or sp.parent.name).strip()
             if not skill_name or skill_name in skills:
                 continue
@@ -402,6 +507,23 @@ def load_community_mapping(path: str) -> dict[str, dict[str, Any]]:
         for name, mapping in skills.items()
         if isinstance(mapping, dict)
     }
+
+
+def dedupe_missing_skills(missing_skills: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep the highest-confidence missing-skill hint for each skill."""
+    by_skill: dict[str, dict[str, Any]] = {}
+    for missing in missing_skills:
+        name = str(missing.get("skill", ""))
+        if not name:
+            continue
+        current = by_skill.get(name)
+        if current is None or float(missing.get("confidence", 0)) > float(current.get("confidence", 0)):
+            by_skill[name] = missing
+    return sorted(
+        by_skill.values(),
+        key=lambda item: float(item.get("confidence", 0)),
+        reverse=True,
+    )
 
 
 # ──────────────────────────────────────────────
@@ -710,6 +832,7 @@ def recommend(
     if not isinstance(mode_overrides, dict):
         mode_overrides = {}
     preferred_skills = set(as_list(config.get("preferred_skills")))
+    synonyms = load_synonyms(config)
     try:
         max_matches = max(1, int(config.get("max_matches", MAX_MATCHES)))
     except (TypeError, ValueError):
@@ -751,21 +874,22 @@ def recommend(
 
     # Build TF-IDF index
     index = TfidfIndex()
+    index.synonyms = synonyms
 
     # Index all discovered skills
     for skill_name, meta in skills.items():
         text = skill_index_text(skill_name, meta)
-        index.add(skill_name, text)
+        index.add(skill_name, text, synonyms)
 
     # Index community-only skills when the user has not installed the skill.
     for name, mapping in community_only_skills.items():
         text = f"{name} {mapping['description']} {' '.join(mapping['tags'])}"
-        index.add(f"_community_{name}", text)
+        index.add(f"_community_{name}", text, synonyms)
 
     index.build()
 
     # Search
-    results = index.search(task, top_k=max_matches * 4)
+    results = index.search(task, top_k=max_matches * 4, synonyms=synonyms)
 
     # Build response
     high_risk = is_high_risk(task)
@@ -873,6 +997,8 @@ def recommend(
         "high_risk": high_risk,
         "no_match_reason": None,
     }
+
+    result["missing_skills"] = dedupe_missing_skills(result["missing_skills"])
 
     if not matches:
         result["no_match_reason"] = (
