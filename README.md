@@ -143,7 +143,13 @@ The router:
 
 PyYAML is recommended for full YAML support. If PyYAML is missing, task-skill-router
 falls back to a small built-in parser that supports the config/frontmatter shapes
-used by this repository.
+used by this repository. If a single skill has invalid frontmatter, the router
+falls back to indexing that frontmatter as plain description text instead of
+crashing the entire scan.
+
+jieba is used for better Chinese tokenization when available. If jieba is
+missing, task-skill-router falls back to built-in CJK ngram tokens and still
+runs.
 
 ## Installation
 

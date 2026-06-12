@@ -340,6 +340,40 @@ description: session insights engine: token consumption and routing analysis
             self.assertTrue(result["matches"])
             self.assertEqual(result["matches"][0]["skill"], "review")
 
+    def test_chinese_tokenization_uses_segmented_terms(self) -> None:
+        tokens = skill_router.tokenize("代碼審查 diff")
+
+        self.assertIn("diff", tokens)
+        self.assertTrue("代碼" in tokens or "代碼審查" in tokens)
+        self.assertIn("審查", tokens)
+
+    def test_chinese_matching_still_works_without_jieba(self) -> None:
+        original_jieba = skill_router._jieba
+        skill_router._jieba = None
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                skills_dir = root / "skills"
+                write_skill(
+                    skills_dir,
+                    "review",
+                    "review",
+                    "Local code review and audit workflow",
+                    ["review", "audit", "diff"],
+                )
+                config = root / "config.yaml"
+                config.write_text(
+                    f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.05\n",
+                    encoding="utf-8",
+                )
+
+                result = skill_router.recommend("代碼審查 diff", config_path=str(config))
+
+                self.assertTrue(result["matches"])
+                self.assertEqual(result["matches"][0]["skill"], "review")
+        finally:
+            skill_router._jieba = original_jieba
+
     def test_chinese_refactor_login_task_matches_refactor_skill(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

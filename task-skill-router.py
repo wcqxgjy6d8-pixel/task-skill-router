@@ -37,6 +37,11 @@ try:
 except ImportError:  # pragma: no cover - exercised only without PyYAML installed
     _yaml = None
 
+try:
+    import jieba as _jieba
+except ImportError:  # pragma: no cover - exercised only without jieba installed
+    _jieba = None
+
 
 # ──────────────────────────────────────────────
 #  Defaults
@@ -276,6 +281,9 @@ DEFAULT_SYNONYMS = {
 
 
 def normalize_token(token: str) -> str:
+    token = token.strip().lower()
+    if not token:
+        return token
     if token in TOKEN_ALIASES:
         return TOKEN_ALIASES[token]
     if len(token) > 4 and token.endswith("ies"):
@@ -289,11 +297,53 @@ def normalize_token(token: str) -> str:
     return token
 
 
+def cjk_ngrams(text: str, max_len: int = 6) -> list[str]:
+    """Generate short CJK ngrams so matching still works without jieba."""
+    chars = re.findall(r"[\u4e00-\u9fff]", text)
+    grams: list[str] = []
+    for size in range(1, min(max_len, len(chars)) + 1):
+        grams.extend("".join(chars[i:i + size]) for i in range(0, len(chars) - size + 1))
+    return grams
+
+
+def segment_cjk(text: str) -> list[str]:
+    """Segment CJK text with jieba when available, plus ngram fallback tokens."""
+    if not text:
+        return []
+
+    tokens: list[str] = []
+    if _jieba is not None:
+        try:
+            tokens.extend(
+                token.strip()
+                for token in _jieba.lcut(text)
+                if token.strip()
+            )
+        except Exception:
+            tokens = []
+
+    tokens.extend(cjk_ngrams(text))
+
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for token in tokens:
+        if token not in seen:
+            seen.add(token)
+            deduped.append(token)
+    return deduped
+
+
 def tokenize(text: str) -> list[str]:
-    """Split text into lowercase tokens, including CJK characters."""
+    """Split text into lowercase English tokens and jieba-backed CJK tokens."""
     text = text.lower()
-    tokens = re.findall(r"[a-z][a-z0-9]{1,}|[\u4e00-\u9fff]{1,6}", text)
-    return [normalize_token(token) for token in tokens]
+    tokens: list[str] = re.findall(r"[a-z][a-z0-9]{1,}", text)
+    for cjk_chunk in re.findall(r"[\u4e00-\u9fff]+", text):
+        tokens.extend(segment_cjk(cjk_chunk))
+    return [
+        normalized
+        for token in tokens
+        if (normalized := normalize_token(token))
+    ]
 
 
 def load_synonyms(config: dict[str, Any] | None = None) -> dict[str, list[str]]:
