@@ -161,3 +161,7 @@ skills:
   karpathy-framework:
     description: "Apply Karpathy engineering realism: demo vs deployment, verify don't trust"
     tags: ["karpathy", "reliability", "engineering", "march of nines", "trust"]
+
+  council-review:
+    description: "High-risk adversarial multi-agent council review for architecture decisions, irreversible changes, deploys, migrations, auth/config/secrets changes, and Doubt Gate decisions."
+    tags: ["council", "multi-agent review", "adversarial review", "high risk", "architecture decision", "service boundary", "production deploy", "data migration", "auth", "config", "secrets", "Doubt Gate"]
