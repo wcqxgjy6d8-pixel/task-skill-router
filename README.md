@@ -40,12 +40,17 @@ The output is JSON, so agents and shell scripts can consume it directly:
   "results": [
     {
       "task": "inspect failing tests and identify root cause",
+      "routing": {
+        "priority": "P1",
+        "decision": "auto-load",
+        "report_policy": "silent"
+      },
       "matches": [
         {
           "skill": "systematic-debugging",
           "installed": true,
           "confidence": 0.42,
-          "mode": "recommend"
+          "mode": "auto-load"
         }
       ]
     }
@@ -88,6 +93,8 @@ printf '%s\n' \
 
 The router answers:
 
+- the compact routing decision agents should follow (`routing.priority`,
+  `routing.decision`, `routing.report_policy`)
 - which skill probably applies to each execution task
 - whether that skill is installed locally
 - where the matching `SKILL.md` lives
@@ -115,6 +122,21 @@ execute with the right skill, verify at the end.
 It is a lightweight heuristic, not an autopilot. Scores are TF-IDF cosine
 similarities, not calibrated probabilities.
 
+### Routing Priority
+
+Agents should treat `routing` as the primary control surface and `matches` as
+the evidence behind it:
+
+| Priority | Decision | Agent behavior |
+|---|---|---|
+| `P0` | `recommend` | High-risk task. Confirm before side effects. |
+| `P1` | `auto-load` / `auto-run` | Strong workflow match. Load or run the top match. |
+| `P2` | `optional-load` / `guidance-only` | Medium/low confidence. Use only if it changes execution. |
+| `P3` | `bypass` | No useful installed skill or answer-only/simple-check task. Proceed directly. |
+
+Default integrations should keep routing metadata silent unless `P0`, a missing
+skill blocks better execution, or the user asks why a skill was used.
+
 ## How It Works
 
 ```text
@@ -139,7 +161,9 @@ The router:
 4. Merges optional `config/community.yaml` entries into installed skills.
 5. Indexes community-only skills too, so missing useful skills can be surfaced.
 6. Builds an in-memory TF-IDF index using pure Python.
-7. Returns JSON matches above the configured threshold.
+7. Applies small workflow-intent boosts for common production cases such as
+   root-cause debugging and frontend/design work.
+8. Returns JSON matches above the configured threshold.
 
 PyYAML is recommended for full YAML support. If PyYAML is missing, task-skill-router
 falls back to a small built-in parser that supports the config/frontmatter shapes
@@ -268,13 +292,25 @@ Example match:
 
 ```json
 {
-  "skill": "systematic-debugging",
-  "installed": true,
-  "path": "/Users/me/.codex/skills/systematic-debugging/SKILL.md",
-  "confidence": 0.34,
-  "mode": "recommend",
-  "reason": "TF-IDF match on skill metadata + community mapping",
-  "commands": []
+  "task": "inspect failing tests and identify root cause",
+  "routing": {
+    "priority": "P1",
+    "decision": "auto-load",
+    "reason": "Strong installed workflow match.",
+    "load_limit": 3,
+    "report_policy": "silent"
+  },
+  "matches": [
+    {
+      "skill": "systematic-debugging",
+      "installed": true,
+      "path": "/Users/me/.codex/skills/systematic-debugging/SKILL.md",
+      "confidence": 0.34,
+      "mode": "auto-load",
+      "reason": "TF-IDF match on skill metadata + community mapping",
+      "commands": []
+    }
+  ]
 }
 ```
 
@@ -308,6 +344,8 @@ skills_dirs:
   - "~/.task-skill-router/skills"
   - "~/.codex/skills"
   - "~/.claude/skills"
+  - "~/.agents/skills"
+  - "~/.hermes/skills"
 community_mapping: "~/.config/task-skill-router/community.yaml"
 confidence_threshold: 0.12
 max_matches: 5
@@ -349,10 +387,13 @@ For non-trivial terminal coding tasks:
 printf '%s\n' "<task 1>" "<task 2>" "<task 3>" | task-skill-router --batch
 ```
 
-3. Load installed `SKILL.md` files when the confidence and mode are appropriate.
+3. Follow `routing.priority` and `routing.decision`; use `matches` as evidence,
+   not as a separate control policy.
 4. If a matched skill is not installed, tell the user which skill is missing and
    why it would improve execution.
 5. For high-risk tasks, recommend the skill to the user before proceeding.
+6. Keep routing metadata silent unless `routing.report_policy` is `report`, a
+   missing skill blocks better execution, or the user asks why a skill was used.
 ````
 
 ### Claude Code

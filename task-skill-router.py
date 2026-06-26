@@ -47,18 +47,86 @@ except ImportError:  # pragma: no cover - exercised only without jieba installed
 #  Defaults
 # ──────────────────────────────────────────────
 DEFAULT_SKILLS_DIR = "~/.task-skill-router/skills"
+DEFAULT_SKILLS_DIRS = [
+    "~/.task-skill-router/skills",
+    "~/.codex/skills",
+    "~/.claude/skills",
+    "~/.agents/skills",
+    "~/.hermes/skills",
+]
 DEFAULT_CONFIG_PATH = "~/.config/task-skill-router/config.yaml"
 DEFAULT_COMMUNITY_PATH = ""
 DEFAULT_AUDIT_LOG_PATH = "~/.task-skill-router/audit/events.jsonl"
 MAX_MATCHES = 5
 CONFIDENCE_THRESHOLD = 0.12
-VALID_MODES = {"auto-load", "auto-run", "recommend"}
+VALID_MODES = {"auto-load", "auto-run", "recommend", "bypass"}
 VALID_JUDGMENTS = {"hit", "miss", "partial", "unknown"}
+AUTO_LOAD_CONFIDENCE = 0.22
+OPTIONAL_LOAD_CONFIDENCE = CONFIDENCE_THRESHOLD
 
 HIGH_RISK_PATTERNS = [
     r"config\b", r"\.env", r"auth", r"delete", r"remove", r"rm\s",
     r"push\s+--force", r"deploy", r"cert", r"entitlement",
     r"API\s*key", r"secret", r"password", r"token",
+    r"配置", r"刪除", r"删除", r"移除", r"重置", r"部署",
+    r"憑證", r"凭证", r"密鑰", r"密钥", r"金鑰", r"金钥",
+    r"令牌", r"發送", r"发送", r"\bPOST\b", r"\bPUT\b", r"\bDELETE\b",
+]
+
+BYPASS_PATTERNS = [
+    r"^\s*(hi|hello|hey|ping)\b",
+    r"^\s*(現在|现在)?[幾几](點|点)",
+    r"^\s*(what time|current time|date)\b",
+    r"^\s*(解釋|解释|說明|说明)(一下|下)?\s*",
+    r"^\s*(tell me|what is|what's)\b",
+]
+
+INTENT_PROFILES: list[dict[str, Any]] = [
+    {
+        "name": "root-cause-debugging",
+        "task_patterns": [
+            r"\b(root[- ]?cause|debug|bug|bugs?|crash|exception|traceback)\b",
+            r"\b(failing tests?|test failures?|failure analysis)\b",
+            r"(根因|除錯|调试|偵錯|排錯|排错|測試失敗|测试失败|失敗|失败|錯誤|错误)",
+        ],
+        "skill_patterns": [
+            r"systematic-debugging",
+            r"root[- ]?cause",
+            r"bug fixing",
+            r"test failures?",
+            r"failure analysis",
+            r"troubleshooting",
+            r"problem-solving",
+            r"investigation",
+        ],
+        "confidence_multiplier": 1.45,
+        "min_confidence": AUTO_LOAD_CONFIDENCE,
+        "suggested_mode": "auto-load",
+    },
+    {
+        "name": "frontend-design",
+        "task_patterns": [
+            r"\b(landing page|redesign|ui|frontend|front-end|visual design)\b",
+            r"\b(component|button|swiftui|web page|website)\b",
+            r"(高端|前端|界面|介面|頁面|页面|重設計|重新設計|重新设计|改版|視覺|视觉|元件|组件|按鈕|按钮)",
+        ],
+        "skill_patterns": [
+            r"design-taste-frontend",
+            r"redesign-existing-projects",
+            r"high-end-visual-design",
+            r"\bui\b",
+            r"frontend",
+            r"landing page",
+            r"visual design",
+            r"redesign",
+            r"component",
+            r"button",
+            r"swiftui",
+        ],
+        "confidence_multiplier": 1.45,
+        "min_confidence": AUTO_LOAD_CONFIDENCE,
+        "suggested_mode": "auto-load",
+    },
 ]
 
 
@@ -583,9 +651,64 @@ def dedupe_missing_skills(missing_skills: list[dict[str, Any]]) -> list[dict[str
 def is_high_risk(task: str) -> bool:
     task_lower = task.lower()
     for pat in HIGH_RISK_PATTERNS:
-        if re.search(pat, task_lower):
+        if re.search(pat, task_lower, re.IGNORECASE):
             return True
     return False
+
+
+def is_bypass_task(task: str) -> bool:
+    """True when routing would add ceremony to an answer-only/simple-check task."""
+    task_lower = task.strip().lower()
+    if not task_lower:
+        return False
+    return any(re.search(pattern, task_lower, re.IGNORECASE) for pattern in BYPASS_PATTERNS)
+
+
+def matches_any_pattern(text: str, patterns: list[str]) -> bool:
+    return any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
+
+
+def task_intents(task: str) -> list[dict[str, Any]]:
+    """Return workflow intents that should bias routing beyond raw TF-IDF."""
+    if is_bypass_task(task):
+        return []
+    return [
+        profile
+        for profile in INTENT_PROFILES
+        if matches_any_pattern(task, as_list(profile.get("task_patterns")))
+    ]
+
+
+def apply_intent_boost(
+    confidence: float,
+    skill_name: str,
+    skill_text: str,
+    intents: list[dict[str, Any]],
+) -> tuple[float, list[str], str]:
+    """Promote skills whose workflow semantics match the task intent."""
+    adjusted = confidence
+    matched_intents: list[str] = []
+    suggested_mode = ""
+    searchable = f"{skill_name} {skill_text}"
+
+    for profile in intents:
+        if not matches_any_pattern(searchable, as_list(profile.get("skill_patterns"))):
+            continue
+        matched_intents.append(str(profile.get("name", "")))
+        try:
+            multiplier = float(profile.get("confidence_multiplier", 1.0))
+        except (TypeError, ValueError):
+            multiplier = 1.0
+        try:
+            minimum = float(profile.get("min_confidence", 0.0))
+        except (TypeError, ValueError):
+            minimum = 0.0
+        adjusted = min(1.0, max(adjusted * multiplier, minimum))
+        mode = str(profile.get("suggested_mode", "") or "")
+        if mode in VALID_MODES:
+            suggested_mode = mode
+
+    return adjusted, [name for name in matched_intents if name], suggested_mode
 
 
 # ──────────────────────────────────────────────
@@ -620,12 +743,82 @@ def select_mode(
         return suggested_mode
 
     # Confidence-based fallback
-    if confidence >= 0.65:
+    if confidence >= AUTO_LOAD_CONFIDENCE:
         return "auto-load"
-    elif confidence >= 0.45:
+    elif confidence >= OPTIONAL_LOAD_CONFIDENCE:
         return "recommend"
     else:
         return "recommend"
+
+
+def build_routing(task: str, matches: list[dict[str, Any]], high_risk: bool) -> dict[str, Any]:
+    """Summarize the router's priority decision for agents.
+
+    ``matches`` remains the full ranked list for backwards compatibility.
+    ``routing`` is the compact decision surface agents should actually follow.
+    """
+    if high_risk:
+        return {
+            "priority": "P0",
+            "decision": "recommend",
+            "reason": "High-risk task: confirm before side effects.",
+            "load_limit": 1,
+            "report_policy": "report",
+        }
+
+    if is_bypass_task(task):
+        return {
+            "priority": "P3",
+            "decision": "bypass",
+            "reason": "Answer-only or single safe check; skill loading would add ceremony.",
+            "load_limit": 0,
+            "report_policy": "silent",
+        }
+
+    installed_matches = [match for match in matches if match.get("installed")]
+    if not installed_matches:
+        return {
+            "priority": "P3",
+            "decision": "bypass",
+            "reason": "No installed skill matched with useful confidence.",
+            "load_limit": 0,
+            "report_policy": "silent",
+        }
+
+    top = installed_matches[0]
+    confidence = float(top.get("confidence", 0.0))
+    mode = str(top.get("mode", ""))
+    if mode == "auto-run":
+        return {
+            "priority": "P1",
+            "decision": "auto-run",
+            "reason": "Strong deterministic helper match.",
+            "load_limit": 1,
+            "report_policy": "silent",
+        }
+    if mode == "auto-load" and confidence >= AUTO_LOAD_CONFIDENCE:
+        return {
+            "priority": "P1",
+            "decision": "auto-load",
+            "reason": "Strong installed workflow match.",
+            "load_limit": 3,
+            "report_policy": "silent",
+        }
+    if confidence >= OPTIONAL_LOAD_CONFIDENCE:
+        return {
+            "priority": "P2",
+            "decision": "optional-load",
+            "reason": "Moderate installed match; load only if it changes execution.",
+            "load_limit": 1,
+            "report_policy": "silent",
+        }
+    return {
+        "priority": "P2",
+        "decision": "guidance-only",
+        "reason": "Low-confidence installed match; treat as a hint, not a mandatory skill.",
+        "load_limit": 0,
+        "report_policy": "silent",
+    }
 
 
 # ──────────────────────────────────────────────
@@ -868,7 +1061,7 @@ def recommend(
         or skills_dir
         or config.get("skills_dirs")
         or config.get("skills_dir")
-        or DEFAULT_SKILLS_DIR
+        or DEFAULT_SKILLS_DIRS
     )
     resolved_community_path = (
         os.environ.get("TASK_SKILL_ROUTER_COMMUNITY")
@@ -943,6 +1136,7 @@ def recommend(
 
     # Build response
     high_risk = is_high_risk(task)
+    intents = task_intents(task)
     matches: list[dict[str, Any]] = []
     missing_skills: list[dict[str, Any]] = []
 
@@ -953,17 +1147,12 @@ def recommend(
             cs = community_only_skills.get(skill_name, {})
             path = ""
             installed = False
-            mode = select_mode(
-                task,
-                skill_name,
-                confidence,
-                mode_overrides,
-                suggested_mode=str(cs.get("mode", "") or "recommend"),
-            )
             reason = "community mapping"
             command = str(cs.get("command", "") or "")
             commands = [command] if command else []
             install_hint = str(cs.get("install", "") or "")
+            skill_text = f"{skill_name} {cs.get('description', '')} {' '.join(as_list(cs.get('tags')))}"
+            configured_mode = str(cs.get("mode", "") or "recommend")
         else:
             if doc_id not in skills:
                 continue
@@ -971,13 +1160,6 @@ def recommend(
             skill_name = meta["name"]
             path = meta["path"]
             installed = True
-            mode = select_mode(
-                task,
-                skill_name,
-                confidence,
-                mode_overrides,
-                suggested_mode=str(meta.get("community_mode", "") or ""),
-            )
             reason = (
                 "TF-IDF match on skill metadata + community mapping"
                 if meta.get("community_description") or meta.get("community_tags")
@@ -986,12 +1168,29 @@ def recommend(
             command = str(meta.get("community_command", "") or "")
             commands = [command] if command else []
             install_hint = str(meta.get("community_install", "") or "")
+            skill_text = skill_index_text(skill_name, meta)
+            configured_mode = str(meta.get("community_mode", "") or "")
+
+        confidence, intent_boosts, intent_mode = apply_intent_boost(
+            confidence,
+            skill_name,
+            skill_text,
+            intents,
+        )
 
         if skill_name in preferred_skills:
             confidence *= 1.05
 
         if confidence < threshold:
             continue
+
+        mode = select_mode(
+            task,
+            skill_name,
+            confidence,
+            mode_overrides,
+            suggested_mode=configured_mode or intent_mode,
+        )
 
         if high_risk and mode != "recommend":
             mode = "recommend"
@@ -1005,6 +1204,8 @@ def recommend(
             "reason": reason,
             "commands": commands,
         }
+        if intent_boosts:
+            match["intent_boosts"] = intent_boosts
         if not installed:
             match["install_hint"] = (
                 install_hint
@@ -1020,6 +1221,10 @@ def recommend(
     # Sort by confidence, limit
     matches.sort(key=lambda m: m["confidence"], reverse=True)
     matches = matches[:max_matches]
+
+    if is_bypass_task(task):
+        matches = []
+    routing = build_routing(task, matches, high_risk)
 
     result: dict[str, Any] = {
         "task": task,
@@ -1045,16 +1250,20 @@ def recommend(
         "matches": matches,
         "missing_skills": missing_skills,
         "high_risk": high_risk,
+        "routing": routing,
         "no_match_reason": None,
     }
 
     result["missing_skills"] = dedupe_missing_skills(result["missing_skills"])
 
     if not matches:
-        result["no_match_reason"] = (
-            "No skill matched this task with sufficient confidence. "
-            "Try rephrasing your task, or add keywords to your SKILL.md descriptions."
-        )
+        if routing.get("decision") == "bypass":
+            result["no_match_reason"] = str(routing.get("reason", "Skill routing bypassed."))
+        else:
+            result["no_match_reason"] = (
+                "No skill matched this task with sufficient confidence. "
+                "Try rephrasing your task, or add keywords to your SKILL.md descriptions."
+            )
         # Include all discovered skills as hints
         result["available_skills"] = sorted(skills.keys())
 
@@ -1072,11 +1281,31 @@ def recommend_batch(tasks: list[str]) -> dict[str, Any]:
             if current is None or missing["confidence"] > current["confidence"]:
                 missing_by_skill[name] = missing
 
+    priorities = [str(result.get("routing", {}).get("priority", "P3")) for result in results]
+    if "P0" in priorities:
+        batch_priority = "P0"
+        batch_decision = "recommend"
+    elif "P1" in priorities:
+        batch_priority = "P1"
+        batch_decision = "auto-load"
+    elif "P2" in priorities:
+        batch_priority = "P2"
+        batch_decision = "optional-load"
+    else:
+        batch_priority = "P3"
+        batch_decision = "bypass"
+
     return {
         "batch": True,
         "num_tasks": len(results),
         "results": results,
         "num_without_matches": sum(1 for result in results if not result["matches"]),
+        "routing": {
+            "priority": batch_priority,
+            "decision": batch_decision,
+            "reason": "Highest-priority routing decision across batch tasks.",
+            "report_policy": "report" if batch_priority == "P0" else "silent",
+        },
         "missing_skills": sorted(
             missing_by_skill.values(),
             key=lambda item: item["confidence"],

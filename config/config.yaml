@@ -10,9 +10,8 @@ skills_dirs:
   - "~/.task-skill-router/skills"
   - "~/.codex/skills"
   - "~/.claude/skills"
-
-# Add any other custom skill libraries you use:
-#  - "~/.agents/skills"
+  - "~/.agents/skills"
+  - "~/.hermes/skills"
 
 # ──────────────────────────────────────────
 #  Community skill mapping file

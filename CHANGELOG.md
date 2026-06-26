@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Added priority routing output (`P0`/`P1`/`P2`/`P3`) so agents can follow a
+  compact decision surface instead of interpreting raw match scores.
+- Added answer-only/simple-check bypass routing to reduce unnecessary skill
+  loading ceremony.
+- Added small workflow-intent boosts for root-cause debugging and
+  frontend/design tasks so production workflows route to the right skills more
+  reliably.
+- Expanded default skill directories to include Codex, Claude, Agents, and
+  Hermes skill libraries.
+- Updated integration guidance to keep routing metadata silent unless it affects
+  user choice.
+
 ## v0.1.0 (2026-06-11)
 
 Initial public release.

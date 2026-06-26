@@ -31,3 +31,5 @@ missing = [item["skill"] for item in data["missing_skills"]]
 assert "systematic-debugging" in skills, skills
 assert "docs" in skills, skills
 assert "arxiv" in missing, missing
+assert data["routing"]["priority"] in {"P1", "P2"}, data["routing"]
+assert data["routing"]["decision"] in {"auto-load", "optional-load"}, data["routing"]

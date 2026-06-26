@@ -91,6 +91,8 @@ skills:
             self.assertTrue(result["matches"])
             self.assertEqual(result["matches"][0]["skill"], "systematic-debugging")
             self.assertTrue(result["matches"][0]["path"].endswith("SKILL.md"))
+            self.assertEqual(result["routing"]["priority"], "P1")
+            self.assertEqual(result["routing"]["decision"], "auto-load")
 
     def test_config_file_controls_skills_dir_and_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -184,6 +186,96 @@ mode_overrides:
             self.assertEqual(result["matches"][0]["skill"], "deploy-helper")
             self.assertEqual(result["matches"][0]["mode"], "recommend")
             self.assertTrue(result["high_risk"])
+            self.assertEqual(result["routing"]["priority"], "P0")
+            self.assertEqual(result["routing"]["decision"], "recommend")
+
+    def test_answer_only_task_bypasses_skill_loading(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "skill-recommender",
+                "skill-recommender",
+                "Skill routing and task decomposition",
+                ["skill", "router"],
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.01\n",
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend("解释一下 Software 3.0 是什么", config_path=str(config))
+
+            self.assertEqual(result["routing"]["priority"], "P3")
+            self.assertEqual(result["routing"]["decision"], "bypass")
+            self.assertEqual(result["matches"], [])
+
+    def test_simple_time_question_bypasses_skill_loading(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "docs",
+                "docs",
+                "Write documentation and answer questions",
+                ["docs", "answer"],
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.01\n",
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend("现在几点", config_path=str(config))
+
+            self.assertEqual(result["routing"]["priority"], "P3")
+            self.assertEqual(result["routing"]["decision"], "bypass")
+            self.assertEqual(result["matches"], [])
+
+    def test_realistic_tfidf_scores_can_still_auto_load(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills_dir = root / "skills"
+            write_skill(
+                skills_dir,
+                "systematic-debugging",
+                "systematic-debugging",
+                "Root cause analysis for bugs, test failures, crashes, exceptions",
+                ["debug", "bug fixing", "root cause", "error", "crash"],
+            )
+            write_skill(
+                skills_dir,
+                "test-driven-development",
+                "test-driven-development",
+                "Implement features with tests and refactor flows",
+                ["tdd", "test", "implementation"],
+            )
+            config = root / "config.yaml"
+            config.write_text(
+                f"skills_dir: {yaml_path(skills_dir)}\nconfidence_threshold: 0.01\n",
+                encoding="utf-8",
+            )
+
+            result = skill_router.recommend("修 bug，測試失敗，要找根因並修復", config_path=str(config))
+
+            self.assertEqual(result["routing"]["priority"], "P1")
+            self.assertEqual(result["routing"]["decision"], "auto-load")
+
+    def test_debug_intent_does_not_boost_negative_debug_mentions(self) -> None:
+        intents = skill_router.task_intents("debug failing test root cause")
+        confidence, boosts, mode = skill_router.apply_intent_boost(
+            0.2,
+            "taste",
+            "Evaluate code quality. Do NOT use for debugging or specific bug fixes.",
+            intents,
+        )
+
+        self.assertEqual(confidence, 0.2)
+        self.assertEqual(boosts, [])
+        self.assertEqual(mode, "")
 
     def test_missing_community_skill_returns_install_hint(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -286,6 +378,7 @@ confidence_threshold: 0.01
             self.assertTrue(data["batch"])
             self.assertEqual(data["num_tasks"], 2)
             self.assertEqual(data["results"][0]["matches"][0]["skill"], "debug")
+            self.assertIn(data["routing"]["priority"], {"P1", "P2"})
             self.assertEqual(data["missing_skills"][0]["skill"], "arxiv")
 
     def test_invalid_skill_frontmatter_falls_back_to_plain_description(self) -> None:
